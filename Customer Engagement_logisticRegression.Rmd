@@ -1,0 +1,198 @@
+---
+title: Predicting User Engagement using Logistic Regression
+output: User_Engagement
+---
+data= read.csv
+```{r}
+setwd("/Users/rubisaini/Desktop/EBAC/Hooq")
+data= read.csv("Test.csv")
+
+names(data)
+str(data)
+summary(data)
+
+
+```
+
+
+```{r}
+#proposition of distribution
+table(data$engaged)
+prop.table(table(data$engaged))
+
+#Removing "acc_acct_id" as this would be insignificant variable in Prediction model
+remove_cols = c('acc_acct_id')
+data = data %>%
+  select(-one_of(remove_cols))
+```
+```{r}
+# Data is biased so we will do OverSampling.
+data_balanced_over <- ovun.sample(engaged ~ ., data = data, method = "over",N = 37912)$data
+table(data_balanced_over$engaged)
+```
+```{r}
+# Distribution of Users(Engaged or not Engaged)
+data_balanced_over %>%
+  group_by(engaged) %>%
+  summarise(count_level = n(),
+            percentage = n()/nrow(data))%>%
+  ggplot(aes(x = as.factor(engaged), y = count_level,fill=as.factor(engaged) )) +
+  geom_bar(stat='identity') +
+  geom_text(aes(label=round(percentage,2)),vjust = 2)
+
+```
+```{r}
+#Correlation among predictors
+corrplot(cor(data_balanced_over[sapply(data_balanced_over, is.numeric)]), method = "number", type='upper')
+
+
+#Removing Multicollinearity - removing search,activedays as these are correlated with appopened and daysactive respectively
+
+remove_cols = c('search','activedays')
+data_balanced_over = data_balanced_over %>%
+  select(-one_of(remove_cols))
+
+```
+```{r}
+#Splitting Data 80-20
+
+set.seed(123)
+splitData = sample.split(data_balanced_over$engaged, SplitRatio = 0.8)
+
+train = data_balanced_over[splitData,]
+nrow(train)/nrow(data_balanced_over)
+
+test = data_balanced_over[!splitData,]
+nrow(test)/nrow(data_balanced_over)
+```
+```{r}
+#Iteration1 ModelFitting
+model1 = glm(train$engaged ~ ., data = train, family = binomial)
+summary(model)
+
+```
+
+```{r}
+#iteration2
+#Removing insignificant variables - playbackerror goes out
+model2 = glm(train$engaged ~ . -playbackerror,
+            data = train, family = binomial)
+summary(model2)
+
+```
+
+```{r}
+#iteration3
+#Removing insignificant variables - contentdetails goes out
+model3 = glm(train$engaged ~ . -playbackerror -contentdetails,
+             data = train, family = binomial)
+summary(model3)
+```
+
+```{r}
+#iteration4
+#Removing insignificant variables - tvod goes out
+model4 = glm(train$engaged ~ . -playbackerror -contentdetails -tvod,
+             data = train, family = binomial)
+summary(model4)
+```
+
+```{r}
+#iteration5
+#Removing insignificant variables - favouritetap goes out
+model5 = glm(train$engaged ~ . -playbackerror -contentdetails -tvod -favouritetap,
+             data = train, family = binomial)
+summary(model5)
+
+```
+
+```{r}
+#iteration6
+#Removing insignificant variables - contentplay goes out
+model6 = glm(train$engaged ~ . -playbackerror -contentdetails -tvod -favouritetap -contentplay,
+             data = train, family = binomial)
+summary(model6)
+```
+
+```{r}
+#iteration7
+#Removing insignificant variables - appopened goes out
+model7 = glm(train$engaged ~ . -playbackerror -contentdetails -tvod -favouritetap -contentplay -appopened,
+             data = train, family = binomial)
+summary(model7)
+```
+
+```{r}
+#Confusion Matrix (train)
+trainPredict = predict(model7, newdata = train, type = 'response')
+p_class = ifelse(trainPredict > 0.5, "YES","NO")
+confusionMatrix(p_class, train$engaged, positive = 'YES')
+```
+
+```{r}
+#AUC (train)
+auc = colAUC(trainPredict, train$engaged, plotROC = TRUE)
+legend(0.1,0.9, round(auc,4), title= 'AUC', cex=.5)
+abline(a=0,b=1,lwd=2,lty=2,col="red")
+```
+
+```{r}
+#Confusion Matrix (test)
+testPredict = predict(model7, newdata = test, type = 'response')
+p_class2 = ifelse(testPredict > 0.5, "YES","NO")
+confusionMatrix(p_class2, test$engaged, positive = 'YES')
+```
+
+```{r}
+#AUC (test)
+auc_test = colAUC(testPredict, test$engaged, plotROC = TRUE)
+legend(0.1,0.9, round(auc_test,4), title= 'AUC', cex=.5)
+abline(a=0,b=1,lwd=2,lty=2,col="red")
+```
+
+```{r}
+#iteration8
+#Removing insignificant variables - browse goes out
+model8 = glm(train$engaged ~ . -playbackerror -contentdetails -tvod -favouritetap -contentplay -appopened -browse ,
+             data = train, family = binomial)
+summary(model8)
+```
+
+
+```{r}
+#Confusion Matrix (train)
+trainPredict = predict(model8, newdata = train, type = 'response')
+p_class = ifelse(trainPredict > 0.5, "YES","NO")
+confusionMatrix(p_class, train$engaged, positive = 'YES')
+```
+
+```{r}
+#AUC (train)
+auc = colAUC(trainPredict, train$engaged, plotROC = TRUE)
+legend(0.1,0.9, round(auc,4), title= 'AUC', cex=.5)
+abline(a=0,b=1,lwd=2,lty=2,col="red")
+```
+
+```{r}
+#Confusion Matrix (test)
+testPredict = predict(model8, newdata = test, type = 'response')
+p_class2 = ifelse(testPredict > 0.5, "YES","NO")
+confusionMatrix(p_class2, test$engaged, positive = 'YES')
+```
+
+```{r}
+#AUC (test)
+auc_test = colAUC(testPredict, test$engaged, plotROC = TRUE)
+legend(0.1,0.9, round(auc_test,4), title= 'AUC', cex=.5)
+abline(a=0,b=1,lwd=2,lty=2,col="red")
+```
+
+```{r}
+#Final Model - Containing all SIgnificant variables with p<0.05
+formula(model8)
+```
+
+
+Model 8 is the best model with minimum no of variables and a good accuracy rate of 99.6%. So taking model as base we can say that discover, downloadstart, daysactive and duration are the most significant attributes in driving User Engagement.
+
+Other than above mentioned iterations i tried few more models where i tried model by removing different correlated attributes but results are best with selected model.
